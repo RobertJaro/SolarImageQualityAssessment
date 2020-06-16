@@ -36,7 +36,6 @@ class IQATrainer:
         self.discriminator_objective = []
         self.generator_objective = []
         self.classifier_objective = []
-        self.region_identifier_objective = []
         for i in range(self.model.n_discriminators):
             disc_patch = self.model.discriminator_output_shape
             disc_patch = (disc_patch[0] // 2 ** i, disc_patch[1] // 2 ** i, disc_patch[2])
@@ -49,7 +48,6 @@ class IQATrainer:
 
                 self.discriminator_objective.extend([valid, fake, dummy])
                 self.classifier_objective.extend([valid, fake])
-                self.region_identifier_objective.extend([valid])
                 self.generator_objective.extend([valid, dummy_features])
             else:
                 valid = np.ones((batch_size,) + disc_patch)
@@ -57,7 +55,6 @@ class IQATrainer:
 
                 self.discriminator_objective.extend([valid, fake])
                 self.classifier_objective.extend([valid, fake])
-                self.region_identifier_objective.extend([valid])
                 self.generator_objective.extend([valid, dummy_features])
 
         ############################## INIT PATHS ###############################
@@ -108,14 +105,12 @@ class IQATrainer:
     def fit(self, iterations):
         data_generator_B = Enqueuer(self.provider_B, self.batch_size)
         data_generator_A = Enqueuer(self.provider_A,
-                                    self.batch_size) if self.model.classifier_mode or self.model.region_mode else None
+                                    self.batch_size) if self.model.classifier_mode else None
 
         out_labels = self.model.combined_discriminator.metrics_names + \
                      self.model.combined_generator.metrics_names
         if self.model.classifier_mode:
             out_labels += self.model.combined_classifier.metrics_names
-        if self.model.region_mode:
-            out_labels += self.model.combined_region_identifier.metrics_names
 
         try:
             for iteration in range(self.initial_iteration + 1, iterations + 1):
@@ -141,12 +136,6 @@ class IQATrainer:
                     c_loss = self.model.combined_classifier.train_on_batch([imgs_B_adj, imgs_A_adj], co)
                     train_time += datetime.now() - start
                 r_loss = []
-                if self.model.region_mode:
-                    imgs_A = next(data_generator_A)
-                    start = datetime.now()
-                    ro = [d[:imgs_A.shape[0]] for d in self.region_identifier_objective]  # adjust batch size
-                    r_loss = self.model.combined_region_identifier.train_on_batch([imgs_A], ro)
-                    train_time += datetime.now() - start
 
                 # Train Generator
 
@@ -175,15 +164,8 @@ class IQATrainer:
                         batch_loss['combined_classifier_valid2_loss'] + batch_loss[
                             'combined_classifier_invalid2_loss'],)
 
-                r_loss_str = ''
-                if self.model.region_mode:
-                    r_loss_str = '[R loss: %.03f/%.03f/%.03f]' % (
-                        batch_loss['combined_region_identifier_discriminator0_loss'],
-                        batch_loss['combined_region_identifier_discriminator1_loss'],
-                        batch_loss['combined_region_identifier_discriminator2_loss'],)
-
                 logging.info(
-                    "[Iteration %d/%d] [D loss: %.03f/%.03f/%.03f] [G loss: %.03f, adv: %.03f/%.03f/%.03f, content: %.05f, mse: %.05f] %s %s time: %s s" \
+                    "[Iteration %d/%d] [D loss: %.03f/%.03f/%.03f] [G loss: %.03f, adv: %.03f/%.03f/%.03f, content: %.05f, mse: %.05f] %s time: %s s" \
                     % (iteration, iterations,
                        batch_loss["combined_discriminator_real0_loss"],
                        batch_loss["combined_discriminator_real1_loss"],
@@ -195,7 +177,6 @@ class IQATrainer:
                        batch_loss["content0_loss"] + batch_loss["content1_loss"] + batch_loss["content2_loss"],
                        batch_loss['generator_mse_loss'],
                        c_loss_str,
-                       r_loss_str,
                        str(iteration_time).split(":")[-1]))
 
                 if iteration % self.log_interval == 0:
