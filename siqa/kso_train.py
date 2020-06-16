@@ -17,11 +17,11 @@ n_compress_channels = 8
 norm = Norm.CONTRAST
 classifier_mode = True
 resolution = 128
-base_path = "/gss/r.jarolim/prediction_anomaly_v14/kso_conf2"
-q2_ds_path = "/gss/r.jarolim/data/anomaly_data_set/quality2"
-q1_ds_path = "/gss/r.jarolim/data/anomaly_data_set/quality1"
-q2_converted_path = '/gss/r.jarolim/data/converted/q2_128_v3'
-q1_converted_path = '/gss/r.jarolim/data/converted/q1_128_v3'
+base_path = ""
+q2_ds_path = ""
+q1_ds_path = ""
+q2_converted_path = ''
+q1_converted_path = ''
 ################################################################
 
 prediction_path = os.path.join(base_path, "prediction")
