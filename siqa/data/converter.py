@@ -3,6 +3,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 
+from siqa.data.provider import Norm, KSODataProvider
 from siqa.tools.common import Enqueuer
 
 
@@ -20,3 +21,12 @@ def convertProvider(provider, path, validation_split=0.):
             np.save(os.path.join(path + '_validation', '%d.npy' % idx), data)
     finally:
         data_generator.stop()
+
+if __name__ == '__main__':
+    provider = KSODataProvider("/gss/r.jarolim/data/kso_general/quality2", ext="*.fts.gz",
+                               patch_shape=(128, 128), norm=Norm.NONE)
+    convertProvider(provider, '/gss/r.jarolim/data/converted/test_q2_128_v2', validation_split=0)
+
+    provider = KSODataProvider("/gss/r.jarolim/data/kso_general/quality1", ext="*.fts.gz",
+                               patch_shape=(128, 128), norm=Norm.NONE)
+    convertProvider(provider, '/gss/r.jarolim/data/converted/test_q1_128_v2', validation_split=0)

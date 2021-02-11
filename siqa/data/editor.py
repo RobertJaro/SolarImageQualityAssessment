@@ -12,13 +12,12 @@ import sunpy
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
-from astropy.visualization import ImageNormalize, AsinhStretch
+from astropy.visualization import ImageNormalize, AsinhStretch, LinearStretch
 from dateutil.parser import parse
 from imageio import imwrite
 from skimage.transform import pyramid_reduce
 from sunpy.coordinates import frames
 from sunpy.coordinates.sun import angular_radius
-from sunpy.instr.aia import aiaprep
 from sunpy.map import Map, header_helper
 
 
@@ -121,7 +120,9 @@ class SubMapEditor(Editor):
 class MapToDataEditor(Editor):
 
     def call(self, map, **kwargs):
-        return map.data, {"header": map.meta}
+        data = map.data
+        logging.info('%s %s %s' % (str(data.min()), str(data.mean()), str(data.max())))
+        return data, {"header": map.meta}
 
 
 class ExposureNormalizationEditor(Editor):
@@ -176,7 +177,7 @@ class PyramidRescaleEditor(Editor):
 
     def call(self, data, **kwargs):
         scale = data.shape[0] / self.target_shape[0]
-        data = pyramid_reduce(data, downscale=scale, order=3)
+        data = pyramid_reduce(data.astype(float), downscale=scale, order=3)
         return data
 
 
@@ -248,6 +249,16 @@ class ContrastNormalizeEditor(Editor):
             data[data > self.threshold] = self.threshold
             data[data < -self.threshold] = -self.threshold
             data /= self.threshold
+        return data
+
+
+class FixNormalizeEditor(Editor):
+
+    def __init__(self, vmin=0, vmax=1000, stretch=LinearStretch()):
+        self.norm = ImageNormalize(vmin=vmin, vmax=vmax, stretch=stretch, clip=True)
+
+    def call(self, data, **kwargs):
+        data = self.norm(data).data * 2 - 1
         return data
 
 
@@ -388,90 +399,6 @@ class NanEditor(Editor):
         return data
 
 
-class DOTDataEditor(Editor):
-    def call(self, data, **kwargs):
-        header = kwargs["header"]
-        if "D_LAMBDA" not in header:
-            raise Exception("INVALID WAVELENGTH")
-        d_lambda = eval(header["D_LAMBDA"])
-        lambdas = [abs(l + header["LAMBDA"] - 6563) for l in d_lambda]
-        if min(lambdas) > 0.2:
-            raise Exception("INVALID WAVELENGTH")
-        data = data[lambdas.index(min(lambdas)) + 1]
-
-        return data
-
-
-class AIAPrepEditor(Editor):
-    def call(self, aia_map, **kwargs):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # ignore warnings
-            if "lvl_num" not in aia_map.meta or aia_map.meta["lvl_num"] != 1.5:
-                aia_map = aiaprep(aia_map)
-
-            aia_map.meta["arcs_pp"] = aia_map.scale[0].value
-            return aia_map
-
-
-class EITPrepEditor(Editor):
-    def call(self, data, **kwargs):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # ignore warnings
-            eit_map = data
-
-            if 'N_MISSING_BLOCKS' in eit_map.meta:
-                assert eit_map.meta['N_MISSING_BLOCKS'] == 0, 'Invalid quality of SOHO image'
-            if 'obs_type' in eit_map.meta:
-                assert eit_map.meta['obs_type'] == 'MAGNI', 'Invalid MDI map'
-
-            target_scale = 2.4
-
-            # angle = -eit_map.meta["sc_roll"]
-            # c = np.cos(np.deg2rad(angle))
-            # s = np.sin(np.deg2rad(angle))
-            #
-            # eit_map.meta["PC1_1"] = c
-            # eit_map.meta["PC1_2"] = -s
-            # eit_map.meta["PC2_1"] = s
-            # eit_map.meta["PC2_2"] = c
-
-            scale = target_scale * u.arcsec
-            scale_factor = eit_map.scale[0] / scale
-            tempmap = eit_map.rotate(recenter=True, scale=scale_factor.value, missing=eit_map.min())
-
-            center = np.floor(tempmap.meta['crpix1'])
-            range_side = (center + np.array([-1, 1]) * eit_map.data.shape[0] / 2) * u.pix
-            eit_map = tempmap.submap(u.Quantity([range_side[0], range_side[0]]),
-                                     u.Quantity([range_side[1], range_side[1]]))
-            eit_map.meta['lvl_num'] = 1.5
-
-            return eit_map
-
-
-class STEREOPrepEditor(Editor):
-    def call(self, data, **kwargs):
-        stereo_map = data
-        if 'NMISSING' in stereo_map.meta:
-            assert stereo_map.meta["NMISSING"] == 0.0, 'Invalid quality of STEREO image'
-        assert stereo_map.meta['obsrvtry'] == 'STEREO_A', 'Invalid STEREO data'
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # ignore warnings
-
-            target_scale = 2.4
-
-            scale = target_scale * u.arcsec
-            scale_factor = stereo_map.scale[0] / scale
-            tempmap = stereo_map.rotate(recenter=True, scale=scale_factor.value, missing=stereo_map.min())
-
-            center = np.floor(tempmap.meta['crpix1'])
-            range_side = (center + np.array([-1, 1]) * stereo_map.data.shape[0] / 2) * u.pix
-            stereo_map = tempmap.submap(u.Quantity([range_side[0], range_side[0]]),
-                                        u.Quantity([range_side[1], range_side[1]]))
-            stereo_map.meta['lvl_num'] = 1.5
-
-            return stereo_map
-
-
 class KSOPrepEditor(Editor):
     def __init__(self, add_rotation=False):
         self.add_rotation = add_rotation
@@ -497,27 +424,6 @@ class KSOPrepEditor(Editor):
             kso_map.meta["PC2_2"] = c
 
             return kso_map
-
-
-class KSOPlatePrepEditor(Editor):
-    def call(self, kso_data, **kwargs):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # ignore warnings
-            header = kwargs["header"]
-
-            coord = SkyCoord(0 * u.arcsec, 0 * u.arcsec, obstime=header["DATE"], observer='earth',
-                             frame=frames.Helioprojective)
-
-            kso_data = kso_data[0]
-            coord_header = sunpy.map.header_helper.make_fitswcs_header(
-                kso_data, coord,
-                reference_pixel=u.Quantity([header["CENTER_X"], header["CENTER_Y"]] * u.pixel),
-                scale=u.Quantity([header["CDELT1"], header["CDELT2"]] * u.arcsec / u.pixel), )
-            # rotation_angle=header["SOLAR_P0"] * u.deg)
-
-            plate_map = sunpy.map.Map(kso_data, coord_header)
-
-            return plate_map
 
 
 class RescaleEditor(Editor):

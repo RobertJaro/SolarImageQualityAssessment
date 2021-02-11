@@ -298,7 +298,7 @@ def validateProvider(model, provider, progress=False):
     return disc_fake, disc_real, ssim, mse, content, classify
 
 def inferenceTime(model, provider):
-    queue = Enqueuer(provider, batch_size=1, shuffle=False, workers=15)
+    queue = Enqueuer(provider, batch_size=1, shuffle=False, n_workers=15)
     try:
         imgs = np.concatenate([next(queue) for _ in tqdm(range(len(queue)))])
     finally:

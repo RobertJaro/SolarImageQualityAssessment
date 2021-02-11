@@ -24,6 +24,7 @@ class Norm(Enum):
     CONTRAST = 'contrast'
     IMAGE = 'image'
     PEAK = 'adjusted'
+    FIX = 'fix'
     NONE = 'none'
 
 
