@@ -7,7 +7,7 @@
 [![Watch the video](results/full_overview_6.jpg)](https://youtu.be/9MvdLDtxKBo)
 ## \>>> Watch the videos: [Quality-Scale](https://youtu.be/9MvdLDtxKBo), [2018-09-27](https://youtu.be/rJEe27osgTI), [2018-09-28](https://youtu.be/U-8uEmErupE), [2018-09-29](https://youtu.be/YygyymxqVFk), [2018-09-30](https://youtu.be/OlmC4BnD020), [2019-01-26](https://youtu.be/sCKDFREpJEw)
 
-# [Paper]() --- [Guide](#guide) --- [Citation](#citation) --- [Contact](#contact)
+# [Paper](#paper) --- [Guide](#guide) --- [Citation](#citation) --- [Contact](#contact)
 
 ## Abstract
 _Context._ Within the last decades, solar physics has entered the era of big data and the amount of data being constantly produced from ground- and space-based observatories can no longer be purely analyzed by human observers.
@@ -209,11 +209,23 @@ provider_validation = NumpyProvider('path_to_converted_set' + '_validation', ext
 This also allows to specify additional editors which are applied after loading the numpy file (ext_editors).
 The NumpyProvider can then be used same as the usual provider.
 
+## Paper
+
+Open-access available online: https://doi.org/10.1051/0004-6361/202038691 
+
 ## Citation
-Coming Soon
+
+@article{jarolim2020siqa,
+  title={Image-quality assessment for full-disk solar observations with generative adversarial networks},
+  author={Jarolim, Robert and Veronig, AM and P{\"o}tzi, Werner and Podladchikova, Tatiana},
+  journal={Astronomy \& Astrophysics},
+  volume={643},
+  pages={A72},
+  year={2020},
+  publisher={EDP Sciences}
+}
 
 ## Contact
-In case you have any questions, bugs or want to contribute, contact:
 
 Robert Jarolim<br/>
 [robert.jarolim@uni-graz.at](mailto:robert.jarolim@uni-graz.at)
